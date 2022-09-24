@@ -1,5 +1,200 @@
-DEFSECT    ".ADPM", CODE
-SECT    ".ADPM"
+DEFSECT    ".setup_main", CODE
+SECT    ".setup_main"
+; SETUP
+global _main
+_main:
+; interrupts
+xor a, a
+
+ld [br:020h], #11111111b ; priority
+ld [br:021h], #11111111b
+ld [br:022h], #11111111b
+
+ld [br:023h], #10000000b ; enable
+ld [br:024h], a
+ld [br:025h], a
+ld [br:026h], a
+
+ld [br:027h], #11111111b ; flags
+ld [br:028h], #11111111b
+ld [br:029h], #11111111b
+ld [br:02Ah], #11111111b
+
+; timer 3
+ld [br:01Ch], #10001000b
+ld [br:01Dh], #00000000b
+ld [br:048h], #10000110b
+
+; oscillator
+ld [br:019h], #00100000b
+
+; sound 
+ld [br:070h], #00h
+ld [br:071h], #00000011b
+
+; PRC
+ld [br:080h], #00001010b
+ld ba, #TileBase
+ld [br:82h], a
+ld [br:83h], b
+ld [br:84h], #0h
+
+; PRC map
+	xor a, a
+	ld b, #60h
+	ld ix, #1360h
+loadmaploop:
+	ld [ix], a
+	inc a
+	inc ix
+  djr nz, loadmaploop
+
+; status flags
+ld sc, #00000000b
+
+; sound lib
+ld hl, #SongData
+carl _ADPMsongSetupCode
+ld hl, #SFXdata
+carl _ADPMsfxBlockSetupCode
+
+Main:
+	halt
+	
+	ld b, [br:52h] ; keypad
+	ld a, [1FE0h]
+	cp a, b
+	ld l, b
+	ld a, b
+  jrs z, skipinputget
+	
+	cp a, #11110111b ; up
+  jrs nz, upnotpressed
+	ld h, #00h
+	ld [SFXreq], h
+upnotpressed:
+
+	cp a, #11101111b ; down
+  jrs nz, downnotpressed
+	ld h, #01h
+	ld [SFXreq], h
+downnotpressed:
+
+	cp a, #11011111b ; left
+  jrs nz, leftnotpressed
+	ld h, #02h
+	ld [SFXreq], h
+leftnotpressed:
+
+	cp a, #10111111b ; right
+  jrs nz, rightnotpressed
+	ld h, #03h
+	ld [SFXreq], h
+rightnotpressed:
+
+	cp a, #01111111b ; sleep
+  jrs nz, sleepnotpressed
+	ld [br:71h], #0
+	int [42h]
+sleepnotpressed:
+	ld [1FE0h], l
+skipinputget:
+	
+  carl _ADPMrunSFX
+  carl _ADPMengineA
+  jrl Main
+
+
+; Copytable
+    DEFSECT    ".ctable", CODE, SHORT
+	SECT    ".ctable"
+global __copytable
+__copytable:
+ret
+
+
+; Interrupts
+    DEFSECT    ".isr", CODE, SHORT
+    SECT    ".isr"
+
+_prc_frame_copy_irq:
+ld [br:27h], #11111111b
+ld [br:20h], #11000000b
+rete
+
+_prc_render_irq:
+_timer_2h_underflow_irq:
+_timer_2l_underflow_irq:
+_timer_1h_underflow_irq:
+_timer_1l_underflow_irq:
+_timer_3h_underflow_irq:
+_timer_3_cmp_irq:
+_timer_32hz_irq:
+_timer_8hz_irq:
+_timer_2hz_irq:
+_timer_1hz_irq:
+_ir_rx_irq:
+_shake_irq:
+_key_power_irq:
+_key_right_irq:
+_key_left_irq:
+_key_down_irq:
+_key_up_irq:
+_key_c_irq:
+_key_b_irq:
+_key_a_irq:
+_unknown_irq:
+_cartridge_irq:
+rete
+
+        GLOBAL  _prc_frame_copy_irq
+        GLOBAL  _prc_render_irq
+        GLOBAL  _timer_2h_underflow_irq
+        GLOBAL  _timer_2l_underflow_irq
+        GLOBAL  _timer_1h_underflow_irq
+        GLOBAL  _timer_1l_underflow_irq
+        GLOBAL  _timer_3h_underflow_irq
+        GLOBAL  _timer_3_cmp_irq
+        GLOBAL  _timer_32hz_irq
+        GLOBAL  _timer_8hz_irq
+        GLOBAL  _timer_2hz_irq
+        GLOBAL  _timer_1hz_irq
+        GLOBAL  _ir_rx_irq
+        GLOBAL  _shake_irq
+        GLOBAL  _key_power_irq
+        GLOBAL  _key_right_irq
+        GLOBAL  _key_left_irq
+        GLOBAL  _key_down_irq
+        GLOBAL  _key_up_irq
+        GLOBAL  _key_c_irq
+        GLOBAL  _key_b_irq
+        GLOBAL  _key_a_irq
+        GLOBAL  _unknown_irq
+        GLOBAL  _cartridge_irq
+	;
+
+
+; WHAT TO DO?
+;
+; [X]  VERIFY CORE CODE
+; [X]  MOUNT TEST NOTE COMMAND
+; [X]  MOUNT PHRASE END COMMAND
+; [X]  MOUNT SONG END COMMAND
+; [X]  MOUNT TEST DATA
+; [X]  ASSEMBLE AND RUN - REPEAT UNTILL WORKING AS INTENDED
+
+; [X] RESERVE ALL NEEDED RAM SPACE
+; [X] WORK ON NOTE HANDLER AND FIX COMMANDS 
+; [X] ADD ALL DESIRED COMMANDS
+
+; [X] IMPLEMENT KILL COUNTER
+; [X] IMPLEMENT DELAYED NOTE COUNTER
+; [X] IMPLEMENT GENERAL MACRO'S BASE FUNCTIONINGS
+
+; [/] ENGINE B EXIT VECTOR
+; [X] SEPARATE SFX CALL
+; [X] CHANGE SET RATE COMMAND TO ACCOMODATE TIMER WRITES
+
 
 ; ///////////////////////////////////////////////////////////////////////// /  /  / 
 ; ///////   ____ ______   ______ ____    ____   //////////////// /// /  /    /
@@ -39,6 +234,9 @@ SECT    ".ADPM"
 ; DW YourSong Instrument Index Table Start
 ; DW YourSong Gmacro Index Table Start
 ; DB SONG RATE VALUE
+
+DEFSECT    ".ADPM", CODE
+SECT    ".ADPM"
 
 GLOBAL _ADPMsongSetupCode
 GLOBAL _ADPMsfxBlockSetupCode
@@ -1419,29 +1617,22 @@ OverrideCtrl: ; ================================================================
 ; //////////////////////////////////////////////////////// /  / /   /    /  /
 
 CMDlist:
-dw PlayNote          ; 0 - PX YY ZZ               X: rest; Y: note index; Z: instrument val; Y's bit 7 is instrument ignore
+dw PlayNote          ; 0 - PX YY ZZ - X = rest; Y = note index; Z = instrument val; Y's bit 7 is instrument ignore
 dw EndPhrase         ; 1 - P-
-dw EndSong           ; 2 - P- XX                  X: start offset
-dw SetTMRvolume      ; 3 - PX                     X: volume: 0 = mute, 1 and 2 = half volume, 3 = max volume
-dw AddToDetune       ; 4 - P- XX                  X: value, if value is 80+ it will subtract
-dw SetRest           ; 5 - PX    / PF XX          X: wait time (+1)
-dw SetTMRduty        ; 6 - P- XX                  X 
-dw SetSNGrate        ; 7 - PX YY / PX YY YY ZZ    X: flags, bit 0 = select timer (timer 1 or 2), bit 1 = change rate (0) or tempo (1), Z: prescalar value
+dw EndSong           ; 2 - P- XX
+dw SetTMRvolume      ; 3 - PX
+dw AddToDetune       ; 4 - P- XX
+dw SetRest           ; 5 - PX YY              X: wait time if it's not FF, otherwise YY is requested as wait time
+dw SetTMRduty        ; 6 - P- XX
+dw SetSNGrate        ; 7 - PX YY / PX YY YY ZZ    X: --RT R=rate select; 0=rate, 1=tempo (timer); T=timer select; (not effective if rate is select) 0=timer 1, 1=timer 2
 dw KillNote          ; 8 - P- XX
-dw SetGmacro         ; 9 - PX YY                  X: flags, bit 0 = mode: 0=absol, 1=add/sub to position (signed), Y: value
-dw DelayedNote       ; A - P- XX YY ZZ            X: wait time, Y: note index, Z: instrument index
-dw Sweep             ; B - PX YY ZZ               X: flags, Y: shift, Z: rate
-dw PortamentoNote    ; C - PX YY ZZ WW VV         X: flags, Y: shift, Z: rate,  W: note,   V: rest
-dw Vibrato           ; D - PX YY ZZ WW            X: flags, Y: rate,  Z: limit, W: shift
-dw PWMauto           ; E - PX YY ZZ WW VV         X: flags, Y: speed, Z: rate,  W: loop,   V: target
-dw LegatoNote        ; F - PX YY                  X: rest,  Y: note
-
-; FLAGS documentation
-; vibrato: ----MM0E  -  M: Mode (0 = up only, 1 = down only, 2 = up down, 3 = square); E: Enable (0 = Off)
-; sweep:   ----PDME  -  P: Portamento (ignores mode! always linear), D: Direction: (1 = up); M: Mode (1 = linear, 0 = exponential); E = Enable (0 = Off)
-; PWM:     ----0-MM  -  M: Mode (0 = disabled, 1 = ping-pong, 2 = loop, 3 = one-shot)
-
-
+dw SetGmacro         ; 9 - PX YY              X: ---R R=relative, 0=absol, 1=add/sub to position (signed)
+dw DelayedNote       ; A - P- XX YY ZZ        X: wait time, Y: note index, Z: instrument index
+dw Sweep             ; B - PX YY ZZ           X: flags, Y: shift, Z: rate
+dw PortamentoNote    ; C - PX YY ZZ WW VV     X: flags, Y: shift, Z: rate,  W: note,   V: rest
+dw Vibrato           ; D - PX YY ZZ WW        X: flags, Y: rate,  Z: limit, W: shift
+dw PWMauto           ; E - PX YY ZZ WW VV     X: flags, Y: speed, Z: rate,  W: loop,   V: target
+dw LegatoNote        ; F - PX YY              X: rest,  Y: note
 
 ADPMgmacroCMDlist: ; for use with Gmacro
 dw SetNote          ; 0 - PX YY              X: flags, Y: value
@@ -1555,8 +1746,273 @@ dw 001F9h ; B 7     53
 ; fun fact: register value 0383h is 2222,22Hz
 
 
+
+; instrument format: detune, duty, macro, PWM config & volume, PWM speed, PWM rate, PWM loop and PWM target
+
+; FFh, DDh, GGh, --SS--VVb, SSh, RRh, LLh, TTh
+
+; F - fine-tune     : bit 7: direction, bit 6-0: ammount
+; D - duty          : 80h = square
+; G - General Macro : 8-bit index; 0FFh is disabled
+; S - PWM mode      : 00 = disabled; 01 = single shot; 10 = loop; 11 = ping-pong
+; V - volume        : 00 = mute; 01 and 10 = 50%; 11 = 100%
+; S, R, L, T are in order with the format description
+
+; note : if S is 0, the instrument system will ignore the last 3 bytes
+
+
+; PLAY NOTE FORMAT
+
+; 0R NN II - R: Rest; N: Note index; I: Instrument 
+
+; note index's bit 7 will toggle off the next instrument fetch and use the last played instrument
+; making it 2 bytes long in the process instead of 3
+
+
+
 ; ////////////////////////////////////////////////// /  /     /  /
-; /////////////////////////////////////////// RAM SPACE /// // /  ///
+; /////////////////////////////////////////// SONG DATA //// / /   /    /
+; //////////////////////////////////////////////////////// /  / /   /    /  /
+
+SongData:
+; HEADER -----------
+dw timeline0
+dw phrasesIndex0
+dw instrumentsIndex0
+dw macrosIndex0
+db 40h
+
+; TIMELINE ---------
+timeline0:
+
+; now:
+db 00h, 00h ; phrase 0, tranpose by 0
+db 01h, 00h ; phrase 1, tranpose by 0
+db 01h, 02h ; phrase 1, tranpose by 2
+db 02h, 00h ; phrase 2, tranpose by 0
+db 01h, 00h ; phrase 1, tranpose by 0
+db 01h, 02h ; phrase 1, tranpose by 2
+db 03h ; (end phrase, only end command so garbage transpose don't matter)
+
+
+; PHRASES ----------
+phrasesIndex0:
+dw phra00
+dw phra01
+dw phra02
+dw phra03
+
+phrasesData0:
+phra00:
+
+db 01h,  34h, 00h,     90h, 00h
+
+db 00h,  04h, 01h
+db 00h,  90h
+db 00h,  32h, 00h,     90h, 00h
+db 00h, 0B1h
+db 00h, 0B2h,          32h 
+db 00h, 0AFh
+db 00h,  04h, 01h,     90h, 00h
+db 00h,  90h
+db 00h,  2Dh, 00h
+db 00h,  10h, 01h
+db 00h,  2Ah, 00h,     90h, 00h
+db 00h,  04h, 01h
+db 00h,  2Dh, 00h
+db 00h, 0A8h
+db 00h,  04h, 01h,     90h, 00h
+db 50h,                32h
+db 00h,  90h
+db 00h,  84h
+db 00h,  28h, 00h,     90h, 00h
+db 00h,  04h, 01h
+db 01h,  90h
+
+db 00h,  28h, 00h,     90h, 00h
+db 50h,                32h
+db 00h,  10h, 01h
+db 00h,  25h, 00h
+db 50h,                 90h, 00h
+db 00h,  04h, 01h
+db 00h,  28h, 00h
+db 00h,  04h, 01h
+
+db 10h
+
+phra01:
+db 00h,  30h, 00h,     90h, 00h
+db 00h,  0Ch, 01h
+db 00h,  32h, 00h
+db 00h,  0Ch, 01h
+db 00h,  30h, 00h,     90h, 00h
+db 00h, 0AFh
+db 00h,  0Ch, 01h
+db 00h,  2Bh, 00h
+db 01h,  00h, 01h,     90h, 00h
+
+db 00h,  26h, 00h
+db 50h,                32h
+db 00h, 00h,  01h,     90h, 00h
+db 50h,                32h
+db 00h,  26h, 00h
+db 00h,  0Ch, 01h
+
+db 10h
+
+phra02:
+db 01h,  34h, 00h,     90h, 00h
+
+db 00h,  04h, 01h
+db 00h,  90h
+db 00h,  32h, 00h,     90h, 00h
+db 00h, 0B1h
+db 00h, 0B2h,          32h
+db 00h, 0AFh
+db 50h,                90h, 00h
+db 00h,  04h, 01h
+db 00h,  2Dh, 00h
+db 00h,  10h, 01h
+db 00h,  2Ah, 00h,     90h, 00h
+db 00h,  04h, 01h
+db 00h,  2Dh, 00h
+db 00h, 0B4h
+db 01h,  04h, 01h,     90h, 00h
+ 
+db 00h,  90h
+db 50h,                32h
+db 01h,  34h, 00h,     90h, 00h
+
+db 00h,  04h, 01h
+db 50h,                32h
+db 01h,  3Bh, 00h,     90h, 00h
+ 
+db 00h,  10h, 01h
+db 00h,  39h, 00h
+db 50h,                90h, 00h
+db 00h,  04h, 01h
+db 00h,  34h, 00h
+db 00h,  04h, 01h
+
+db 10h
+
+phra03:
+db 20h, 00h
+
+
+; INSTRUMENTS ------
+instrumentsIndex0:
+dw ins00
+dw ins01
+
+instrumentsData0:
+ins00:
+db 00h, 44h, 01h, 00010011b, 01h, 01h, 20h, 80h
+ins01:
+db 00h, 78h, 0FFh, 00000011b
+
+; MACROS -----------
+macrosIndex0:
+dw Gmacro00
+dw Gmacro01
+dw Gmacro02
+dw Gmacro03
+
+macrosData0:
+Gmacro00: ; drum
+db 01h, 20h,  7Bh, 80h,   20h
+db 01h, 18h,              20h
+db 01h, 14h,              20h
+db 00h, 00h,  70h, 00h,   30h, 0FFh
+
+Gmacro01: ; slight pitch bend
+db 00h, 001h,   20h
+db 00h, 0FFh,   30h, 0FFh
+
+Gmacro02:
+db 00h, 002h, 20h
+db 00h, 002h, 20h
+db 00h, 0FEh, 20h
+db 00h, 0FEh, 20h
+db 10h, 040h, 23h
+db 10h, 020h, 23h
+db 11h, 080h, 23h
+db 11h, 040h, 23h
+db 50h, 20h
+db 51h, 20h
+db 50h, 20h
+db 51h, 20h
+db 50h, 20h
+db 53h, 20h
+db 51h, 20h
+db 53h, 20h
+db 53h, 20h
+db 51h, 20h
+db 53h, 20h
+db 40h, 00h
+
+Gmacro03:
+db 20h
+db 00h, 002h ,20h
+db 00h, 0FEh ,20h
+db 30h, 0FAh
+
+SFXdata:
+; SFX index table
+dw SFX0
+dw SFX1
+dw SFX2
+dw SFX3
+
+SFX0: ; all of them
+db 10110011b, 0A0h, 30h
+db 10111011b, 80h, 8Fh
+db 10111011b, 88h, 8Fh
+db 10111010b, 70h, 8Fh
+db 10111010b, 78h, 8Fh
+db 10110011b, 80h, 30h
+db 10110011b, 88h, 34h
+db 10110010b, 70h, 38h
+db 10110010b, 78h, 40h
+db 00h
+
+SFX1: ; only duty
+db 10110011b, 80h, 38h
+db 10100011b, 70h
+db 10100011b, 60h
+db 10100011b, 50h
+db 10100011b, 40h
+db 10100011b, 30h
+db 00h
+
+SFX2: ; only freq (absol)
+db 10110011b, 80h, 30h
+db 10010011b, 024h
+db 10010011b, 020h
+db 10010011b, 028h
+db 10010011b, 02Eh
+db 10010011b, 02Eh
+db 00h
+
+SFX3: ; only freq (relative)
+db 10110011b, 80h, 30h
+db 10011011b, 07Fh
+db 10011011b, 07Fh
+db 10011011b, 07Fh
+db 10011011b, 07Fh
+db 10011011b, 07Fh
+db 10011011b, 07Fh
+db 10011011b, 07Fh
+db 10011011b, 07Fh
+db 10011011b, 07Fh
+db 10011011b, 07Fh
+db 00h
+
+
+
+
+; ////////////////////////////////////////////////// /  /     /  /
+; /////////////////////////////////////////// RESERVED RAM SPACE / /   /
 ; //////////////////////////////////////////////////////// /  / /   /    /  /
 DEFSECT ".RAMspace", DATA
 SECT ".RAMspace"
@@ -1600,11 +2056,11 @@ FixedNoteReq:     ds 1
 SweepShift:       ds 1
 SweepPreset:      ds 1
 SweepRate:        ds 1
-SweepGRA:         ds 1
-SweepGRB:         ds 1
+SweepGRA:         ds 1 ; mode 0 - target freq. low    mode 1 - step counter  |  target indices are not used
+SweepGRB:         ds 1 ;          targer freq. high            target index  |  if portamento flag is reset
 ; Sound Effects
-SFXreq:           ds 1
-SFXrest:          ds 1
+SFXreq:           ds 1 ; FF = disabled; FE = playing, any = pending
+SFXrest:          ds 1 ; wait time
 SFXpos:           ds 2
 SFXduty:          ds 1
 ; Vibrato Auto
@@ -1614,8 +2070,8 @@ VibratoRate:      ds 1
 VibratoProgCnt:   ds 1
 VibratoProgPre:   ds 1
 ; misc
-DutyOverride:     ds 1
-VolumeLevel:      ds 1
+DutyOverride:     ds 1 ; for Gmacro drums, 00 = disabled
+VolumeLevel:      ds 1 ; Z-XX--YY; Z = override volume toggle, X = override value, Y = current volume (music)
 ; tick counter for Engine B entry
 TickAmmnt:        ds 1
 TickCount:        ds 1
@@ -1625,3 +2081,66 @@ Flags:            ds 1
 TimeLinePos:      ds 2
 PhrasePos:        ds 2
 LastInstrument:   ds 1
+
+; current RAM usage: 63 bytes
+
+; flag bits:
+; 7 - continuity check         1 = fetch      0 = stop
+; 6 - Gmacro enable            1 = on         0 = off
+; 5 - SFX continuity check     1 = fetch      0 = stop ; to remove
+; 4 - Gmacro continuity check  1 = fetch      0 = stop
+; 3 - Kill count enable        1 = on         0 = off
+; 2 - Delay count enable       1 = on         0 = off
+; 1 - 
+; 0 - 
+
+
+; pitch flag bits:
+; 7 - portamento on/off  0 = sweep        1 = portamento
+; 6 - sweep direction    0 = down         1 = up
+; 5 - sweep mode         0 = exponential  1 = proportional
+; 4 - sweep enable       0 = off          1 = on
+; 3 - vibrato mode       \
+; 2 - vibrato mode       0 = down only    1 = up only    2 = alternate    3 = square
+; 1 - vibrato direction  0 = down         1 = up
+; 0 - vibrato enable     0 = off          1 = on
+
+; PWM auto flag bits
+; 7 - working direction <for ping-pong mode>
+; 6 -
+; 5 -
+; 4 -
+; 3 -
+; 2 -
+; 1 - PWM auto mode bit
+; 0 - PWM auto mode bit        0 = off     1 = single shot    2 = loop     3 = ping-pong
+
+DEFSECT ".ScreenData", ROMDATA
+SECT ".ScreenData"
+
+align 8
+TileBase:
+db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 0C0h, 0C0h, 00h, 00h, 00h, 00h, 00h
+db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 80h, 80h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h
+db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h
+db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 80h, 80h, 0B0h, 0B0h, 0A0h, 0BEh, 9Eh, 80h, 8Eh, 9Eh, 0B8h
+db 9Eh, 8Eh, 80h, 0ACh, 0AEh, 0AAh, 0BAh, 9Ah, 80h, 81h, 80h, 80h, 80h, 00h, 00h, 80h, 80h, 80h, 80h, 80h, 80h, 80h, 80h, 80h, 80h, 80h, 80h, 80h, 80h, 80h, 80h, 80h
+db 80h, 80h, 80h, 80h, 80h, 80h, 80h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 80h, 80h, 80h, 80h, 80h, 80h, 80h, 80h, 80h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h
+db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 80h, 60h, 18h, 06h, 01h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 0FFh, 00h, 00h, 00h, 00h
+db 00h, 0F8h, 08h, 08h, 08h, 08h, 18h, 60h, 80h, 00h, 01h, 06h, 18h, 7Fh, 80h, 00h, 00h, 00h, 00h, 0F8h, 08h, 08h, 08h, 08h, 08h, 08h, 0F8h, 00h, 00h, 01h, 06h, 18h, 0E0h
+db 00h, 00h, 00h, 01h, 06h, 18h, 60h, 80h, 80h, 60h, 18h, 06h, 01h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 0FFh, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h
+db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 80h, 60h, 18h, 06h, 01h, 00h, 00h, 00h, 10h, 1Ch, 1Fh, 00h, 00h, 00h, 00h, 00h, 0FFh, 00h, 00h, 00h, 00h, 00h, 0FFh, 00h, 00h, 00h
+db 00h, 00h, 00h, 01h, 0FEh, 00h, 00h, 00h, 00h, 01h, 0FEh, 00h, 00h, 00h, 0F1h, 11h, 11h, 11h, 11h, 11h, 11h, 11h, 10h, 0F0h, 10h, 10h, 10h, 1Fh, 00h, 0FEh, 18h, 60h
+db 80h, 00h, 00h, 01h, 01h, 00h, 00h, 80h, 60h, 18h, 0FEh, 00h, 00h, 00h, 00h, 00h, 0FFh, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h
+db 00h, 80h, 60h, 18h, 06h, 01h, 00h, 00h, 80h, 60h, 18h, 06h, 02h, 02h, 02h, 0FEh, 00h, 00h, 00h, 00h, 00h, 0FFh, 00h, 00h, 00h, 00h, 00h, 7Fh, 40h, 40h, 40h, 40h, 60h
+db 18h, 06h, 01h, 00h, 80h, 60h, 0F8h, 06h, 01h, 00h, 00h, 00h, 0FFh, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 0FFh, 00h, 00h, 00h, 00h, 00h, 0FFh, 00h, 00h, 01h, 06h, 18h
+db 60h, 60h, 18h, 06h, 01h, 00h, 00h, 0FFh, 00h, 00h, 00h, 00h, 00h, 0FFh, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 76h, 0F5h, 0C4h
+db 0F4h, 74h, 04h, 0E4h, 0F6h, 51h, 70h, 60h, 00h, 0F0h, 0F0h, 60h, 37h, 14h, 04h, 04h, 04h, 04h, 07h, 24h, 0F4h, 0F4h, 04h, 04h, 04h, 0E4h, 0F4h, 14h, 0F4h, 0E4h, 04h, 04h
+db 04h, 06h, 01h, 00h, 07h, 04h, 04h, 04h, 04h, 04h, 07h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 07h, 04h, 04h, 94h, 0D4h, 54h, 77h, 20h, 00h, 0E0h, 0F0h, 10h, 0F0h, 0E0h
+db 00h, 90h, 0D0h, 50h, 70h, 27h, 04h, 94h, 0D4h, 54h, 74h, 27h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 01h, 00h, 00h, 00
+db 00h, 01h, 01h, 01h, 00h, 00h, 01h, 01h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 01h, 01h, 00h, 01h, 00h, 00h, 01h, 01h, 01h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h
+db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 01h, 01h, 01h, 01h, 01h, 00h, 00h, 01h, 01h, 01h, 00h, 00h, 01h, 01h, 01h, 01h, 01h
+db 00h, 01h, 01h, 01h, 01h, 01h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h, 0AAh, 0AAh, 0AAh, 0AAh, 0AAh, 0AAh, 0AAh, 0AAh, 0AAh, 0AAh, 0FEh, 82h, 0EAh, 0E6h, 0FEh, 86h
+db 0EEh, 0F6h, 0FEh, 0CEh, 0A6h, 0A6h, 0FEh, 0A6h, 0A6h, 96h, 0FEh, 0A6h, 0A6h, 96h, 0FEh, 0FEh, 0FEh, 0FEh, 0FEh, 82h, 0BAh, 0C6h, 0FEh, 0EEh, 0FEh, 86h, 0D6h, 0EEh, 0FEh
+db 96h, 96h, 8Eh, 0FEh, 9Eh, 0AEh, 86h, 0FEh, 0FEh, 0FEh, 0FEh, 0EEh, 86h, 0EAh, 0FEh, 0CEh, 0B6h, 0CEh, 0FEh, 86h, 0EEh, 0F6h, 0FEh, 0FEh, 0FEh, 0B6h, 0AAh, 0AAh, 0DAh
+db 0FEh, 82h, 0EAh, 0FAh, 0FEh, 0BAh, 0D6h, 0EEh, 0D6h, 0BAh, 0FEh, 0AAh, 0AAh, 0AAh, 0AAh, 0AAh,0AAh, 0AAh, 0AAh, 0AAh, 0AAh, 0AAh
