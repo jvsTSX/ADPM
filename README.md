@@ -14,12 +14,12 @@ Notes:
  main
 
 - In order to assemble the test song from source you will need to download "startup.asm" from https://github.com/pokemon-mini/c88-pokemini/blob/master/examples/helloworld/src/startup.asm and then follow the steps:
-1: make sure cc88.exe and screc_cat.exe are set to PATH (dropping the files on the BIN epson toolchain folder also works but it's quite to find the files around there)
-2: put both example.asm and startup.asm in the same folder
-3: type cd [directory path] (example: cd C:/Users/ScottHere/Desktop/pokemonminiexample)
-4: type "cc88 -srec -v -Md -d pokemini example.asm startup.asm"
-5: type "srec_cat example.sre -o example.min -binary"
-6: open the resulting .MIN file into any pokémon mini emulator
+- 1: make sure cc88.exe and screc_cat.exe are set to PATH (dropping the files on the BIN epson toolchain folder also works but it's pretty messy)
+- 2: put both example.asm and startup.asm in the same folder
+- 3: type cd [directory path] (example: cd C:/Users/ScottHere/Desktop/pokemonminiexample)
+- 4: type "cc88 -srec -v -Md -d pokemini example.asm startup.asm"
+- 5: type "srec_cat example.sre -o example.min -binary"
+- 6: open the resulting .MIN file into any pokémon mini emulator
 
 A video of the example song is available here: https://youtu.be/Z2X9NSDcpnk
 
