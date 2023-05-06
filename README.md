@@ -17,7 +17,7 @@ version 1.1
 - Driver size: 2078 bytes
 
 ## Usage
-- There are three global labels to call, two must be called upon Vsync or Timer overflow (the main engine calls, one for the SFX subengine) and one to setup your song, you must load register pair `HL` with the `#Label` and register `A` with the `#@dpag(Label)` of your song's header location before calling the setup code
+- There are three global labels to call, two must be called upon Vsync or Timer overflow (the main engine calls, one for the SFX subengine) and one to setup your song, you must load register pair `HL` with the `#Label` and register `A` with the `#@dpag(Label)` of your song's header location before calling the setup code (WARNING: YOU MUST `PUSH IP` AND `POP IP` BEFORE AND AFTER CALLING THE DRIVER AND SETUP, THESE DON'T DO THIS AUTOMATICALLY TO NOT PUSH THINGS TWICE IN CASE YOU WANT TO SET THE TIMING SOURCE TO THE TIMER IRQS)
 - Most features have been tested before creating this repo, but things might be buggy still, please report if anything is misbehaving
 - PRC should be disabled for fast tempos, and enabled for V-sync tempo (~36hz)
 - Setup the SFX subdriver by adding these lines of code:
