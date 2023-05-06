@@ -2,10 +2,23 @@
 Audio Driver for Pokémon Mini
 A simple but hopefully good enough for music Sound Driver for Nintendo's Pokémon Mini console, written fully in S1C88 assembly. 
 
+## changelog
+version 1.1
+- full rewrite of the driver, taking into account my improvements on ADVM
+- groove table added
+- fixed bugs regarding Gmacro loop
+- reworked the Gmacro format
+- new pitch pipe using interpolation for consistent sweeps and vibratos anywhere in the pitch range
+- speed control changed to integer instead of accumulator-based, you can still emulate what it does using the groove table
+- songs now can be in any ROM bank, just make sure ADPM itself stays in the home bank (bank 0)
+
+## info
+- CPU consumption: (WIP, Cycle counting takes a while)
+- Driver size: 2078 bytes
+
 ## Usage
 - There are three global labels to call, two must be called upon Vsync or Timer overflow (the main engine calls, one for the SFX subengine) and one to setup your song, you must load register pair `HL` with the `#Label` and register `A` with the `#@dpag(Label)` of your song's header location before calling the setup code
 - Most features have been tested before creating this repo, but things might be buggy still, please report if anything is misbehaving
-- CPU consumption: (WIP, Cycle counting takes a while)
 - PRC should be disabled for fast tempos, and enabled for V-sync tempo (~36hz)
 - Setup the SFX subdriver by adding these lines of code:
 ```asm
