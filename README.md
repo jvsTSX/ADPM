@@ -1,26 +1,32 @@
 # ADPM
 Audio Driver for Pokémon Mini
 A simple but hopefully good enough for music Sound Driver for Nintendo's Pokémon Mini console, written fully in S1C88 assembly. 
-In order to assemble and run this on your ROM you will need:
-- The Epson S1C88 toolchain, available here: https://github.com/pokemon-mini/c88-pokemini
-- A Pokémon Mini emulator
-- A file with your main ASM or C code and an additional file for your Music and SFX data if you want to include it outside of your main code
 
-Notes:
-- There are four global labels to call, two must be called upon Vsync or Timer overflow (the main engine calls, one for the SFX subengine) and two to setup your song, make sure you load register pair HL with the #Label of your song header and SFX location before calling the setup codes, some detail is on the source itself
+## Usage
+- There are three global labels to call, two must be called upon Vsync or Timer overflow (the main engine calls, one for the SFX subengine) and one to setup your song, you must load register pair `HL` with the `#Label` and register `A` with the `#@dpag(Label)` of your song's header location before calling the setup code
 - Most features have been tested before creating this repo, but things might be buggy still, please report if anything is misbehaving
-- CPU consumption has not been measured
+- CPU consumption: (WIP, Cycle counting takes a while)
 - PRC should be disabled for fast tempos, and enabled for V-sync tempo (~36hz)
- main
+- Setup the SFX subdriver by adding these lines of code:
+```asm
+ ld a, #@dpag(SFXlist)
+ ld [_ADPM_SFXbank], a
+ ld hl, #SFXlist      
+ ld [_ADPM_SFXdir], hl
+```
 
-- In order to assemble the test song from source you will need to download "startup.asm" from https://github.com/pokemon-mini/c88-pokemini/blob/master/examples/helloworld/src/startup.asm and then follow the steps:
+## Assembling 
+
+In order to assemble the example song from source you will need to download "startup.asm" from [this repo](https://github.com/pokemon-mini/c88-pokemini/blob/master/examples/helloworld/src/startup.asm) and then follow the steps:
 - 1: make sure cc88.exe and screc_cat.exe are set to PATH (dropping the files on the BIN epson toolchain folder also works but it's pretty messy)
-- 2: put both example.asm and startup.asm in the same folder
-- 3: type cd [directory path] (example: cd C:/Users/ScottHere/Desktop/pokemonminiexample)
-- 4: type "cc88 -srec -v -Md -d pokemini example.asm startup.asm"
-- 5: type "srec_cat example.sre -o example.min -binary"
+- 2: put ADPM.asm, example.asm and startup.asm in the same folder
+- 3: type `cd [directory path]` (example: `cd C:/Users/ScottHere/Desktop/pokemonminiexample`)
+- 4: type `cc88 -srec -v -Md -d pokemini adpm_1_1.asm startup.asm example_song.asm`
+- 5: type `srec_cat example.sre -o example.min -binary`
 - 6: open the resulting .MIN file into any pokémon mini emulator
 
-A video of the example song is available here: https://youtu.be/Z2X9NSDcpnk
+A video of the example song is available [on my youtube channel](https://youtu.be/Z2X9NSDcpnk)
+
+Further documentation available at the end of the ADPM.asm source file
 
 There is currently no converter or utility available for ADPM
