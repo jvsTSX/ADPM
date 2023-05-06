@@ -34,7 +34,7 @@ In order to assemble the example song from source you will need to download "sta
 - 1: make sure cc88.exe and screc_cat.exe are set to PATH (dropping the files on the BIN epson toolchain folder also works but it's pretty messy)
 - 2: put ADPM.asm, example.asm and startup.asm in the same folder
 - 3: type `cd [directory path]` (example: `cd C:/Users/ScottHere/Desktop/pokemonminiexample`)
-- 4: type `cc88 -srec -v -Md -d pokemini adpm.asm startup.asm example.asm`
+- 4: type `cc88 -srec -v -Md -d pokemini example.asm adpm.asm startup.asm`
 - 5: type `srec_cat example.sre -o example.min -binary`
 - 6: open the resulting .MIN file into any pokémon mini emulator
 
