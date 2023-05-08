@@ -13,6 +13,7 @@ version 1.1
 - songs now can be in any ROM bank, just make sure ADPM itself stays in the home bank (bank 0)
 
 ## info
+- RAM usage: 7 bytes for SFX sub-engine and 55 bytes for music engine (total 62 bytes)
 - CPU consumption: (WIP, Cycle counting takes a while)
 - Driver size: 2078 bytes
 
