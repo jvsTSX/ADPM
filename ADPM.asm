@@ -565,61 +565,12 @@ GM_Done:
 ;  //"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""||
 ; ||                         PITCH PIPE                         ||
 ; ||,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,//
- 
-;                  / Porta on  -> target check -> add all -> range check -> clobber
-; calculate index |  Sweep on  ->                 add all -> range check -> wrap
-;                  \ Sweep off ->                 add all -> range check -> clobber
-;
-;					MSB             LSB
-;	VibratoProg     signed index    unsigned offset
-;	Detune                   signed byte
-;	SweepInterp     unused          unsinged offset
-;
-;	Vibr High = Sign Ex
-;	Low and the rest = add together
-;	nibble split result
-
-
-; the first step of this mess after the fixed note check is done
-; is summing every interpolation related variable and then 
-; add any over or underflow as an index to the summed index values
-	
-; then we check what is the sweep command doing to decide whether
-; an out-of-range pitch is clobbered to the lowest or highest pitch
-; or wrapped to the end of the list if it's negative and the other way around
-	
-; interpolate = VibratoProgLow + Detuning + SweepInterp
-; index = VibratoProgHigh + SweepIndCnt + TransposeCurr + CurrntNote + OffsetNote + sign ex'd interpolate high
-
-
-; worst cases are hmm...
-; detuning max is 07h, minimum is F8h
-; sweep interp and vibrato prog are both unsigned so both added together is Fh + Fh = 1Eh
-; 1Eh + 07H = 25h
-; 00h + F8h = F8h
-; then the result is isolated into two nibbles alongside vibratoProg
-; 2 or F worst cases - SEP'd into FFh or 02h + vibrato SEP'd into FF-F8 or 07-00
-	
-; results: Ah = index offset, Al = final interpolation number, Bl = vibrato's index offset (signed)
-; goal: add Ah turned into LSB with Bl while preserving Al
-
-
-; clobber mode notes:
-; [   Note Lut   ] [    out of range   ] [    out of range    ]
-;                                       ^ use this point to decide where to clobber
-
-
-
-; todo: fixed mode pitch pipe and the SFX ignore
-
 	ld a, [_ADPM_SFXoverlay]
 	cp a, #0FFh
-  jrl nz, SFX_OVERLAYING
+  jrl nz, TickCounter ; check for SFX
 	ld a, [NoteOverlay]
 	cp a, #0FFh
-  jrs z, PITCH_Normal
-; otherwise fixed note
-	
+  jrs z, PITCH_Normal ; check for fixed note 
 	ld hl, #pitchLut
 	ld b, #0
 	add a, a
@@ -636,16 +587,13 @@ GM_Done:
 	ld a, [DutyOverlay]
   jrl PITCH_EndWrites
 	
-SFX_OVERLAYING:
-  ret
-	
 PITCH_Normal:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; BASIC MATH
 	ld a, [VibratoProg]
 	upck ; b = index offset (signed), a = interpolate offset (unsigned)
 	add a, [Detuning]
 	add a, [SweepInterp]
-	ld l, a ; save it into L for later, high is index low is interp (ready!)
+	ld l, a ; save it into L for later, high is index low is interp
 	
 	; now for the index
 	; sign extend the result, we are looking at the high nibble of A reg
@@ -746,7 +694,6 @@ PITCH_RangeDone: ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; INTERPOLATE
     xor l, #0FFh
 	
 	ld a, [VolumeLevel] ; apply volume
-;	and a, #00000011b
 	ld [br:71h], a
 	ld a, [PWMcurr] ; grab current PWM
 PITCH_EndWrites:
@@ -765,8 +712,6 @@ PITCH_EndWrites:
 	ld [204Ch], hl ; timer 3 pivot low
 ; note to self  -  MUL:  L * A = HL
 
-; TODO: CHECK IF THIS LOOKS LIKE IT WILL WORK AND TEST IT
-
 
 
 ;  //"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""||
@@ -776,37 +721,27 @@ TickCounter:
 	ld hl, #TickCount ; tick counter
 	dec [hl]
   jrs nz, QUIT
-;	ld a, [TickReload]
-;	ld [hl], a
 	
-	; TODO: GROOVE TABLE GOES HERE
-	ld iy, [GrooveLocal]
+	ld iy, [GrooveLocal] ; process groove
 	ld l, [TickReload]
 	ld a, [iy+l]
 	cp a, #0FFh
   jrs nz, GT_Continue
-	
 	; otherwise end
 	inc l
 	ld a, [iy+l]
 	ld [TickReload], a
 	ld l, a
 	ld a, [iy+l]
-	
 GT_Continue:
 	inc a
 	ld [TickCount], a
 	inc l
 	ld [TickReload], l
-	
-	; todo: check if all memory accesses from SONG are done with IY
-	; XP and EP MUST BE HOME BANK
-	
-	
+
 	ld hl, #WaitCount ; check wait counter
 	dec [hl]
   jrs nz, QUIT
-
 	ld hl, #WorkFlags ; reset continue flag
 	or [hl], #10000000b
 NextCMD:
@@ -1059,8 +994,8 @@ INSTRUMENT_PROCESS:
   jrs z, INSTRPROC_GmacroSkip
 	or [hl], #00000100b
 	
-	ld ix, iy ; NOTE: only IY have the song data bank set to its extend page, IX is used to access the pitch LUT
-	ld iy, [GmacroLocal] ; NOTE: replace other Gmacro ref code because they don't work outside of bank 0
+	ld ix, iy ; IY for ROM access ONLY
+	ld iy, [GmacroLocal]
 	ld b, #0
 	add ba, ba
 	add iy, ba
@@ -1093,11 +1028,6 @@ INSTRPROC_GmacroSkip:
 	or [hl], a
 	
 	bit b, #00110000b
-;	ld a, b ; apply PWM mode and check if it's off
-;	ld hl, #WorkFlags
-;	and a, #00110000b
-;	or [hl], a
-;	or a, a
   jrs z, INSTRPROC_EXIT
 	add iy, #2
 	ld ba, [iy] ; wait and then rate
@@ -1141,7 +1071,6 @@ CMD_EndEvent: ; ////////////////////////////////////////////////////////////////
 	adc hl, ba
 	ld iy, hl
   jrs CMD_EndEv_EndToPhra
-;	ld [TimeLinePos], hl
 	
 CMD_EndEv_NxtPhra:
 	ld iy, [TimeLinePos] ; grab new timeline parameter
@@ -1365,12 +1294,6 @@ CMD_Sweep: ; ///////////////////////////////////////////////////////////////////
 	inc iy
 	ld ba, [iy]
 	ld [SweepReload], ba ; reload and then rate
-	
-	; initialize stuff
-;	xor a, a
-;	ld b, a
-;	ld [SweepInterp], ba ; sweep interpolate count and then index count
-;	inc a
 	ld a, #1
 	ld [SweepWait], a
 
@@ -1481,74 +1404,73 @@ DEFSECT "ADPM_RAM_SPACE", DATA
 SECT "ADPM_RAM_SPACE"
 
 	; position block
-SongBank:		ds 1
-TmLineLocal:	ds 2
-PhraseLocal:	ds 2
-InstrmLocal:	ds 2
-GmacroLocal:	ds 2 ; 9
-GrooveLocal:    ds 2 ; 11
+SongBank:			ds 1
+TmLineLocal:		ds 2
+PhraseLocal:		ds 2
+InstrmLocal:		ds 2
+GmacroLocal:		ds 2
+GrooveLocal:		ds 2
 
 	; Block A definitions
-KillCount:		ds 1
-DelayCount:		ds 1
-PendingNote:	ds 1
-PendingInstr:	ds 1
+KillCount:			ds 1
+DelayCount:			ds 1
+PendingNote:		ds 1
+PendingInstr:		ds 1
 
-GmacroPos:		ds 2
-GmacroWait:		ds 1
+GmacroPos:			ds 2
+GmacroWait:			ds 1
 
-VibratoWait:	ds 1 ; amount to wait before running vibrato
-VibratoReload:	ds 1
-VibratoRate:	ds 1 ; amount to add to offset
-VibratoProg:	ds 1 ; current vibrato offset table position
-VibratoPos:		ds 1 ; current working position of the vibrato wave gen
+VibratoWait:		ds 1 ; amount to wait before running vibrato
+VibratoReload:		ds 1
+VibratoRate:		ds 1 ; amount to add to offset
+VibratoProg:		ds 1 ; current vibrato offset table position
+VibratoPos:			ds 1 ; current working position of the vibrato wave gen
 
-PitchState:		ds 1 ; Vibrato < - > Sweep/portamento
+PitchState:			ds 1 ; Vibrato < - > Sweep/portamento
 
-SweepWait:		ds 1 ; amount to wait before running sweep
-SweepReload:	ds 1
-SweepRate:		ds 1 ; amount to add per sweep step
-SweepInterp:	ds 1
-SweepIndCnt:	ds 1
-SweepTrgt:		ds 1 ; for portamento mode, holds note index
+SweepWait:			ds 1 ; amount to wait before running sweep
+SweepReload:		ds 1
+SweepRate:			ds 1 ; amount to add per sweep step
+SweepInterp:		ds 1
+SweepIndCnt:		ds 1
+SweepTrgt:			ds 1 ; for portamento mode, holds note index
 
-PWMwait:   		ds 1
-PWMreload:		ds 1
-PWMrate:		ds 1
-PWMcurr:		ds 1
-PWMloop:		ds 1
-PWMtrgt:		ds 1
+PWMwait:			ds 1
+PWMreload:			ds 1
+PWMrate:			ds 1
+PWMcurr:			ds 1
+PWMloop:			ds 1
+PWMtrgt:			ds 1
 
-CurrntNote:		ds 1 ; current note entry playing from note table
-OffsetNote:		ds 1 ; arpeggio entry offset
-Detuning:		ds 1
-TransposeCurr:	ds 1
-TransposeNext:	ds 1
+CurrntNote:			ds 1 ; current note entry playing from note table
+OffsetNote:			ds 1 ; arpeggio entry offset
+Detuning:			ds 1
+TransposeCurr:		ds 1
+TransposeNext:		ds 1
 
-NoteOverlay:	ds 1 ; overrides current note result, 0FFh = not effective
-DutyOverlay:	ds 1
-VolumeLevel:	ds 1 ; MSB = overlay, LSB = normal
-_ADPM_SFXoverlay:		ds 1 ; SFX muting if it's 0FEh, disabled if 0FFh
+NoteOverlay:		ds 1 ; overrides current note result, 0FFh = not effective
+DutyOverlay:		ds 1
+VolumeLevel:		ds 1 ; MSB = overlay, LSB = normal
+_ADPM_SFXoverlay:	ds 1 ; SFX muting if it's 0FEh, disabled if 0FFh
 
 	; Block B definitions
-TickCount:		ds 1
-TickReload:		ds 1
+TickCount:			ds 1
+TickReload:			ds 1
 
-WaitCount:		ds 1
-WorkFlags:		ds 1
-PhrasePos:		ds 2
-TimeLinePos:	ds 2
-LastInstrm:		ds 1
+WaitCount:			ds 1
+WorkFlags:			ds 1
+PhrasePos:			ds 2
+TimeLinePos:		ds 2
+LastInstrm:			ds 1
 
-; MUSIC: 52 bytes + 1 byte
+; MUSIC: 55 bytes
 
 	; SFX Subdriver block
-_ADPM_SFXbank:			ds 1
-_ADPM_SFXdir:			ds 2
-SFXwait:		ds 1	
-SFXpos:			ds 2
-SFXduty:		ds 1
-
+_ADPM_SFXbank:		ds 1
+_ADPM_SFXdir:		ds 2
+SFXwait:			ds 1	
+SFXpos:				ds 2
+SFXduty:			ds 1
 
 ; SFX: 7 bytes
 
